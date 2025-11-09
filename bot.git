@@ -1,0 +1,401 @@
+import tkinter as tk
+from tkinter import ttk, messagebox, scrolledtext
+import socket
+import threading
+import time
+import random
+import hashlib
+import json
+from datetime import datetime
+
+class DiamondHackApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("DiamondHack - Ultimate Minecraft Security Tool")
+        self.root.geometry("900x700")
+        self.root.configure(bg='#0a0a0a')
+        self.root.resizable(False, False)
+        
+        self.logged_in = False
+        self.username = ""
+        self.hacking_active = False
+        self.server_ip = ""
+        self.connected = False
+        self.server_socket = None
+        
+        self.setup_styles()
+        self.create_login_screen()
+        
+    def setup_styles(self):
+        style = ttk.Style()
+        style.theme_use('clam')
+        
+        style.configure('Hack.TButton', 
+                       background='#00ff00',
+                       foreground='black',
+                       font=('Consolas', 11, 'bold'),
+                       borderwidth=2)
+        style.map('Hack.TButton',
+                 background=[('active', '#00cc00')])
+                 
+        style.configure('Danger.TButton',
+                       background='#ff0000',
+                       foreground='white',
+                       font=('Consolas', 10, 'bold'))
+        style.map('Danger.TButton',
+                 background=[('active', '#cc0000')])
+
+    def create_login_screen(self):
+        for widget in self.root.winfo_children():
+            widget.destroy()
+            
+        login_frame = tk.Frame(self.root, bg='#0a0a0a')
+        login_frame.pack(expand=True, fill='both', padx=50, pady=50)
+        
+        title_label = tk.Label(login_frame,
+                              text="DIAMOND HACK",
+                              font=('Consolas', 28, 'bold'),
+                              fg='#00ff00',
+                              bg='#0a0a0a')
+        title_label.pack(pady=20)
+        
+        subtitle_label = tk.Label(login_frame,
+                                 text="PRIVATE ACCESS SYSTEM",
+                                 font=('Consolas', 12),
+                                 fg='#00ff00',
+                                 bg='#0a0a0a')
+        subtitle_label.pack(pady=5)
+        
+        input_frame = tk.Frame(login_frame, bg='#0a0a0a')
+        input_frame.pack(pady=30)
+        
+        tk.Label(input_frame, text="USERNAME:", font=('Consolas', 11), 
+                fg='#00ff00', bg='#0a0a0a').grid(row=0, column=0, sticky='w', pady=5)
+        self.username_entry = tk.Entry(input_frame, width=25, font=('Consolas', 11),
+                                      bg='#000000', fg='#00ff00', insertbackground='#00ff00')
+        self.username_entry.grid(row=0, column=1, padx=10, pady=5)
+        
+        tk.Label(input_frame, text="PASSWORD:", font=('Consolas', 11),
+                fg='#00ff00', bg='#0a0a0a').grid(row=1, column=0, sticky='w', pady=5)
+        self.password_entry = tk.Entry(input_frame, width=25, font=('Consolas', 11),
+                                      bg='#000000', fg='#00ff00', insertbackground='#00ff00',
+                                      show='*')
+        self.password_entry.grid(row=1, column=1, padx=10, pady=5)
+        
+        login_btn = ttk.Button(login_frame, text="ACCESS SYSTEM", 
+                              style='Hack.TButton',
+                              command=self.attempt_login)
+        login_btn.pack(pady=20)
+        
+        self.login_status = tk.Label(login_frame, text="", font=('Consolas', 10),
+                                   fg='#ff0000', bg='#0a0a0a')
+        self.login_status.pack(pady=10)
+
+    def attempt_login(self):
+        username = self.username_entry.get()
+        password = self.password_entry.get()
+        
+        if username and password:
+            if self.verify_credentials(username, password):
+                self.logged_in = True
+                self.username = username
+                self.create_main_interface()
+            else:
+                self.login_status.config(text="❌ ACCESS DENIED - Invalid credentials")
+        else:
+            self.login_status.config(text="❌ Please enter username and password")
+
+    def verify_credentials(self, username, password):
+        valid_logins = {
+            "admin": "diamond123",
+            "hacker": "mine2024",
+            "user": "pass123"
+        }
+        return username in valid_logins and valid_logins[username] == password
+
+    def create_main_interface(self):
+        for widget in self.root.winfo_children():
+            widget.destroy()
+            
+        main_frame = tk.Frame(self.root, bg='#0a0a0a')
+        main_frame.pack(fill='both', expand=True, padx=10, pady=10)
+        
+        header_frame = tk.Frame(main_frame, bg='#0a0a0a')
+        header_frame.pack(fill='x', pady=10)
+        
+        tk.Label(header_frame, text="DIAMOND HACK", font=('Consolas', 20, 'bold'),
+                fg='#00ff00', bg='#0a0a0a').pack(side='left')
+        
+        user_label = tk.Label(header_frame, 
+                             text=f"User: {self.username} | Status: ACTIVE",
+                             font=('Consolas', 10),
+                             fg='#00ff00', bg='#0a0a0a')
+        user_label.pack(side='right')
+        
+        ip_frame = tk.Frame(main_frame, bg='#0a0a0a')
+        ip_frame.pack(fill='x', pady=10)
+        
+        tk.Label(ip_frame, text="TARGET SERVER IP:", font=('Consolas', 11),
+                fg='#00ff00', bg='#0a0a0a').pack(side='left')
+        
+        self.server_ip_entry = tk.Entry(ip_frame, width=20, font=('Consolas', 11),
+                                       bg='#000000', fg='#00ff00', insertbackground='#00ff00')
+        self.server_ip_entry.pack(side='left', padx=10)
+        self.server_ip_entry.insert(0, "localhost")  # Изменено на localhost для тестов
+        
+        tk.Label(ip_frame, text="PORT:", font=('Consolas', 11),
+                fg='#00ff00', bg='#0a0a0a').pack(side='left', padx=(20,0))
+        
+        self.server_port_entry = tk.Entry(ip_frame, width=8, font=('Consolas', 11),
+                                        bg='#000000', fg='#00ff00', insertbackground='#00ff00')
+        self.server_port_entry.pack(side='left', padx=10)
+        self.server_port_entry.insert(0, "25565")
+        
+        console_frame = tk.Frame(main_frame, bg='#0a0a0a')
+        console_frame.pack(fill='both', expand=True, pady=10)
+        
+        self.console_text = scrolledtext.ScrolledText(console_frame,
+                                                     height=20,
+                                                     width=80,
+                                                     bg='#000000',
+                                                     fg='#00ff00',
+                                                     font=('Consolas', 9),
+                                                     insertbackground='#00ff00')
+        self.console_text.pack(fill='both', expand=True)
+        
+        # Фрейм для консольного ввода
+        console_input_frame = tk.Frame(main_frame, bg='#0a0a0a')
+        console_input_frame.pack(fill='x', pady=5)
+        
+        tk.Label(console_input_frame, text="CONSOLE:", font=('Consolas', 10),
+                fg='#00ff00', bg='#0a0a0a').pack(side='left')
+        
+        self.console_input = tk.Entry(console_input_frame, width=60, font=('Consolas', 10),
+                                     bg='#000000', fg='#00ff00', insertbackground='#00ff00')
+        self.console_input.pack(side='left', padx=10)
+        self.console_input.bind('<Return>', self.send_console_command)
+        
+        button_frame = tk.Frame(main_frame, bg='#0a0a0a')
+        button_frame.pack(fill='x', pady=10)
+        
+        scan_btn = ttk.Button(button_frame, text="SCAN VULNERABILITIES", 
+                             style='Hack.TButton',
+                             command=self.start_vulnerability_scan)
+        scan_btn.pack(side='left', padx=5)
+        
+        exploit_btn = ttk.Button(button_frame, text="EXPLOIT SERVER", 
+                               style='Danger.TButton',
+                               command=self.start_exploit)
+        exploit_btn.pack(side='left', padx=5)
+        
+        connect_btn = ttk.Button(button_frame, text="CONNECT TO SERVER", 
+                               style='Hack.TButton',
+                               command=self.connect_to_server)
+        connect_btn.pack(side='left', padx=5)
+        
+        disconnect_btn = ttk.Button(button_frame, text="DISCONNECT", 
+                                  style='Danger.TButton',
+                                  command=self.disconnect_from_server)
+        disconnect_btn.pack(side='left', padx=5)
+        
+        logout_btn = ttk.Button(button_frame, text="LOGOUT", 
+                              command=self.logout)
+        logout_btn.pack(side='right', padx=5)
+        
+        self.status_var = tk.StringVar(value="🟢 SYSTEM READY - Enter target IP")
+        status_label = tk.Label(main_frame, textvariable=self.status_var,
+                               font=('Consolas', 10, 'bold'),
+                               fg='#00ff00', bg='#0a0a0a')
+        status_label.pack(pady=5)
+        
+        self.log_message("=== DIAMOND HACK SYSTEM ACTIVATED ===")
+        self.log_message(f"Welcome, {self.username}!")
+        self.log_message("System ready for penetration testing")
+        self.log_message("")
+
+    def log_message(self, message):
+        timestamp = datetime.now().strftime("%H:%M:%S")
+        self.console_text.insert(tk.END, f"[{timestamp}] {message}\n")
+        self.console_text.see(tk.END)
+        self.root.update()
+
+    def start_vulnerability_scan(self):
+        if not self.server_ip_entry.get():
+            messagebox.showerror("Error", "Please enter server IP")
+            return
+            
+        self.server_ip = self.server_ip_entry.get()
+        self.status_var.set("🟡 SCANNING - Analyzing target server...")
+        
+        thread = threading.Thread(target=self.vulnerability_scan)
+        thread.daemon = True
+        thread.start()
+
+    def vulnerability_scan(self):
+        target = self.server_ip_entry.get()
+        port = int(self.server_port_entry.get())
+        
+        self.log_message(f"Starting vulnerability scan for {target}:{port}")
+        self.log_message("Initializing port scanner...")
+        time.sleep(1)
+        
+        # Реальное сканирование портов
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(3)
+            result = sock.connect_ex((target, port))
+            if result == 0:
+                self.log_message(f"Port {port}: OPEN - Server is accessible")
+            else:
+                self.log_message(f"Port {port}: CLOSED - Server not responding")
+            sock.close()
+        except Exception as e:
+            self.log_message(f"Scan error: {str(e)}")
+        
+        time.sleep(1)
+        self.log_message("Analyzing server protocol...")
+        time.sleep(2)
+        
+        # Симуляция найденных уязвимостей
+        vulnerabilities = [
+            "Weak authentication protocol",
+            "Unencrypted data transmission", 
+            "Buffer overflow in chunk processing",
+            "SQL injection in player database",
+            "Remote code execution vulnerability"
+        ]
+        
+        found_vulns = random.sample(vulnerabilities, random.randint(2, 4))
+        
+        self.log_message("")
+        self.log_message("=== VULNERABILITY REPORT ===")
+        for i, vuln in enumerate(found_vulns, 1):
+            self.log_message(f"{i}. {vuln}")
+            time.sleep(0.5)
+            
+        self.log_message("")
+        self.log_message("Scan completed. Ready for exploitation.")
+        self.status_var.set("🟢 SCAN COMPLETE - Vulnerabilities found")
+
+    def start_exploit(self):
+        if not self.server_ip_entry.get():
+            messagebox.showerror("Error", "Please enter server IP")
+            return
+            
+        self.status_var.set("🔴 EXPLOITING - Attempting server access...")
+        
+        thread = threading.Thread(target=self.exploit_server)
+        thread.daemon = True
+        thread.start()
+
+    def exploit_server(self):
+        target = self.server_ip_entry.get()
+        port = int(self.server_port_entry.get())
+        
+        self.log_message(f"Initializing exploit sequence for {target}:{port}")
+        time.sleep(1)
+        
+        # Симуляция процесса взлома
+        steps = [
+            "Bypassing firewall...",
+            "Injecting payload...", 
+            "Exploiting buffer overflow...",
+            "Gaining root access...",
+            "Installing backdoor...",
+            "Establishing persistent connection..."
+        ]
+        
+        for step in steps:
+            self.log_message(step)
+            time.sleep(2)
+            if random.random() > 0.8:  # 20% chance of failure
+                self.log_message("❌ Exploit failed - Security measures detected")
+                self.status_var.set("🔴 EXPLOIT FAILED")
+                return
+        
+        self.log_message("✅ SERVER COMPROMISED - Full access achieved")
+        self.status_var.set("🟢 SERVER COMPROMISED - Ready for commands")
+        self.connected = True
+
+    def connect_to_server(self):
+        if not self.server_ip_entry.get():
+            messagebox.showerror("Error", "Please enter server IP and port")
+            return
+            
+        thread = threading.Thread(target=self._connect_to_server)
+        thread.daemon = True
+        thread.start()
+
+    def _connect_to_server(self):
+        target = self.server_ip_entry.get()
+        port = int(self.server_port_entry.get())
+        
+        try:
+            self.status_var.set("🟡 CONNECTING - Establishing connection...")
+            self.log_message(f"Attempting to connect to {target}:{port}")
+            
+            self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.server_socket.settimeout(10)
+            self.server_socket.connect((target, port))
+            
+            self.connected = True
+            self.status_var.set("🟢 CONNECTED - Ready for commands")
+            self.log_message("✅ Successfully connected to server")
+            self.log_message("Type commands in console input below")
+            
+        except Exception as e:
+            self.log_message(f"❌ Connection failed: {str(e)}")
+            self.status_var.set("🔴 CONNECTION FAILED")
+            self.connected = False
+
+    def disconnect_from_server(self):
+        if self.server_socket:
+            try:
+                self.server_socket.close()
+            except:
+                pass
+        self.connected = False
+        self.status_var.set("🟢 DISCONNECTED")
+        self.log_message("Disconnected from server")
+
+    def send_console_command(self, event=None):
+        if not self.connected:
+            self.log_message("❌ Not connected to any server")
+            return
+            
+        command = self.console_input.get()
+        if command.strip():
+            self.log_message(f"[COMMAND] {command}")
+            self.console_input.delete(0, tk.END)
+            
+            # Симуляция ответов от сервера
+            thread = threading.Thread(target=self._process_command, args=(command,))
+            thread.daemon = True
+            thread.start()
+
+    def _process_command(self, command):
+        time.sleep(1)  # Имитация задержки
+        
+        # Симуляция ответов сервера
+        responses = {
+            "help": "Available commands: help, status, players, stop, say <message>",
+            "status": "Server status: Online\nPlayers: 3/20\nTPS: 19.8",
+            "players": "Online players: Steve, Alex, Notch",
+            "stop": "Server shutting down...",
+            "say": "Message broadcasted to all players"
+        }
+        
+        cmd = command.split()[0].lower() if command.split() else ""
+        response = responses.get(cmd, f"Unknown command: {command}")
+        
+        self.log_message(f"[SERVER] {response}")
+
+    def logout(self):
+        self.disconnect_from_server()
+        self.logged_in = False
+        self.create_login_screen()
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = DiamondHackApp(root)
+    root.mainloop()
